@@ -1,0 +1,424 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Agnos Hospital Staff Portal — API Test Console</title>
+<style>
+  :root {
+    --bg: #f4f7fa;
+    --card: #ffffff;
+    --border: #dde4ea;
+    --text: #1c2b36;
+    --muted: #64798a;
+    --primary: #0f6f6f;
+    --primary-dark: #0b5555;
+    --accent: #1c7ed6;
+    --danger: #c53030;
+    --ok: #1a7f37;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+  }
+  header {
+    background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+    color: #fff;
+    padding: 1.25rem 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+  header h1 { margin: 0; font-size: 1.15rem; font-weight: 600; }
+  header .sub { font-size: 0.8rem; opacity: 0.85; }
+  .session-badge {
+    background: rgba(255,255,255,0.15);
+    border-radius: 999px;
+    padding: 0.35rem 0.9rem;
+    font-size: 0.8rem;
+    font-family: var(--mono);
+  }
+  main {
+    max-width: 1100px;
+    margin: 1.5rem auto;
+    padding: 0 1rem 3rem;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+  }
+  @media (max-width: 820px) {
+    main { grid-template-columns: 1fr; }
+  }
+  .full { grid-column: 1 / -1; }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1.1rem 1.25rem;
+  }
+  .card h2 {
+    margin: 0 0 0.75rem;
+    font-size: 0.95rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--muted);
+  }
+  .card h2 .tag {
+    font-size: 0.65rem;
+    text-transform: none;
+    letter-spacing: 0;
+    background: #fff3cd;
+    color: #8a6100;
+    border-radius: 4px;
+    padding: 0.1rem 0.4rem;
+    margin-left: 0.4rem;
+  }
+  label {
+    display: block;
+    font-size: 0.78rem;
+    color: var(--muted);
+    margin: 0.5rem 0 0.2rem;
+  }
+  input, select {
+    width: 100%;
+    padding: 0.45rem 0.55rem;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 0.85rem;
+    font-family: inherit;
+  }
+  .row { display: flex; gap: 0.6rem; }
+  .row > div { flex: 1; }
+  button {
+    margin-top: 0.85rem;
+    background: var(--primary);
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    padding: 0.5rem 1rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  button:hover { background: var(--primary-dark); }
+  button.secondary { background: var(--accent); }
+  button.secondary:hover { background: #1560ab; }
+  button.ghost {
+    background: transparent;
+    color: var(--danger);
+    border: 1px solid var(--danger);
+  }
+  button.ghost:hover { background: #fdecec; }
+  button + button { margin-left: 0.5rem; }
+  .result {
+    margin-top: 0.75rem;
+    background: #0f1720;
+    color: #d7e2ea;
+    border-radius: 6px;
+    padding: 0.65rem 0.75rem;
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-height: 260px;
+    overflow: auto;
+  }
+  .status-pill {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    padding: 0.1rem 0.5rem;
+    border-radius: 4px;
+    margin-bottom: 0.4rem;
+  }
+  .status-2xx { background: #e3f6e8; color: var(--ok); }
+  .status-4xx { background: #fdecec; color: var(--danger); }
+  .status-err { background: #fdecec; color: var(--danger); }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.78rem;
+    margin-top: 0.6rem;
+  }
+  th, td {
+    text-align: left;
+    padding: 0.35rem 0.5rem;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+  }
+  th { color: var(--muted); font-weight: 600; }
+  #log {
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    background: #0f1720;
+    color: #9fb4c4;
+    border-radius: 6px;
+    padding: 0.75rem;
+    max-height: 300px;
+    overflow: auto;
+  }
+  #log .entry { margin-bottom: 0.5rem; }
+  #log .entry .line1 { color: #d7e2ea; }
+  #log .ok { color: #7ee2a8; }
+  #log .fail { color: #ff9b9b; }
+  .hint { font-size: 0.75rem; color: var(--muted); margin-top: 0.4rem; }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>🏥 Agnos Hospital Staff Portal</h1>
+    <div class="sub">Minimal API test console — not the graded front-end deliverable</div>
+  </div>
+  <div class="session-badge" id="sessionBadge">not logged in</div>
+</header>
+
+<main>
+
+  <section class="card">
+    <h2>API base URL</h2>
+    <label for="baseUrl">Base URL</label>
+    <input id="baseUrl" value="http://localhost:8080" />
+    <div class="hint">Points at nginx (docker compose) by default. Requests to /staff/* and /patient/search go through this.</div>
+  </section>
+
+  <section class="card">
+    <h2>Staff login <span class="tag">POST /staff/login</span></h2>
+    <div class="row">
+      <div>
+        <label>Hospital</label>
+        <input id="loginHospital" value="hospital_a" />
+      </div>
+      <div>
+        <label>Username</label>
+        <input id="loginUsername" value="staff_a1" />
+      </div>
+    </div>
+    <label>Password</label>
+    <input id="loginPassword" type="password" value="Password123!" />
+    <button onclick="doLogin()">Login</button>
+    <button class="secondary" onclick="doRefresh()">Refresh token</button>
+    <button class="ghost" onclick="doLogout()">Logout</button>
+    <div id="loginResult"></div>
+  </section>
+
+  <section class="card full">
+    <h2>Patient search <span class="tag">GET /patient/search — requires login</span></h2>
+    <div class="row">
+      <div><label>national_id</label><input id="sNationalId" /></div>
+      <div><label>passport_id</label><input id="sPassportId" /></div>
+      <div><label>date_of_birth</label><input id="sDob" placeholder="YYYY-MM-DD" /></div>
+    </div>
+    <div class="row">
+      <div><label>first_name</label><input id="sFirst" /></div>
+      <div><label>middle_name</label><input id="sMiddle" /></div>
+      <div><label>last_name</label><input id="sLast" /></div>
+    </div>
+    <div class="row">
+      <div><label>phone_number</label><input id="sPhone" /></div>
+      <div><label>email</label><input id="sEmail" /></div>
+    </div>
+    <button onclick="doSearch()">Search patients</button>
+    <div id="searchResult"></div>
+    <div id="searchTable"></div>
+  </section>
+
+  <section class="card">
+    <h2>Create staff <span class="tag">POST /staff/create — requires login</span></h2>
+    <div class="hint">Target hospital must match your logged-in hospital, or the API returns 403.</div>
+    <div class="row">
+      <div><label>Hospital</label><input id="csHospital" value="hospital_a" /></div>
+      <div><label>Username</label><input id="csUsername" value="staff_a_new" /></div>
+    </div>
+    <label>Password</label>
+    <input id="csPassword" type="password" value="password123" />
+    <button onclick="doCreateStaff()">Create staff</button>
+    <div id="createResult"></div>
+  </section>
+
+  <section class="card">
+    <h2>Mock Hospital A HIS <span class="tag">GET /mock-his/patient/search/:id — no auth</span></h2>
+    <div class="hint">Standalone simulator of the external HIS (task 1). Try 1100000000001 or P1234567.</div>
+    <label>national_id or passport_id</label>
+    <input id="hisId" value="1100000000001" />
+    <button onclick="doMockHis()">Lookup</button>
+    <div id="hisResult"></div>
+  </section>
+
+  <section class="card full">
+    <h2>Request log</h2>
+    <div id="log"><div class="hint" style="padding:0.2rem 0">No requests yet.</div></div>
+  </section>
+
+</main>
+
+<script>
+let accessToken = null;
+let refreshToken = null;
+
+function baseUrl() {
+  return document.getElementById('baseUrl').value.replace(/\/$/, '');
+}
+
+function decodeJwt(token) {
+  try {
+    const payload = token.split('.')[1];
+    const json = atob(payload.replace(/-/g, '+').replace(/_/g, '/'));
+    return JSON.parse(json);
+  } catch (e) {
+    return null;
+  }
+}
+
+function updateSessionBadge() {
+  const badge = document.getElementById('sessionBadge');
+  if (!accessToken) {
+    badge.textContent = 'not logged in';
+    return;
+  }
+  const claims = decodeJwt(accessToken);
+  if (claims) {
+    const exp = new Date(claims.exp * 1000).toLocaleTimeString();
+    badge.textContent = `staff ${claims.staff_id.slice(0,8)}… @ hospital ${claims.hospital_id.slice(0,8)}… (expires ${exp})`;
+  } else {
+    badge.textContent = 'logged in';
+  }
+}
+
+function logEntry(method, path, status, ok, body) {
+  const log = document.getElementById('log');
+  if (log.children.length === 1 && log.children[0].classList.contains('hint')) {
+    log.innerHTML = '';
+  }
+  const div = document.createElement('div');
+  div.className = 'entry';
+  const cls = ok ? 'ok' : 'fail';
+  div.innerHTML = `<div class="line1"><span class="${cls}">${status || 'ERR'}</span> ${method} ${path}</div>` +
+    `<div>${escapeHtml(typeof body === 'string' ? body : JSON.stringify(body))}</div>`;
+  log.prepend(div);
+}
+
+function escapeHtml(s) {
+  return s.replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+}
+
+async function api(method, path, { body = null, auth = false } = {}) {
+  const headers = { 'Content-Type': 'application/json' };
+  if (auth) {
+    if (!accessToken) throw new Error('not logged in');
+    headers['Authorization'] = 'Bearer ' + accessToken;
+  }
+  let res, json;
+  try {
+    res = await fetch(baseUrl() + path, {
+      method,
+      headers,
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    const text = await res.text();
+    json = text ? JSON.parse(text) : {};
+  } catch (e) {
+    logEntry(method, path, null, false, String(e));
+    throw e;
+  }
+  logEntry(method, path, res.status, res.ok, json);
+  return { status: res.status, ok: res.ok, body: json };
+}
+
+function renderResult(elId, res) {
+  const el = document.getElementById(elId);
+  const pillClass = res.ok ? 'status-2xx' : 'status-4xx';
+  el.innerHTML = `<div class="status-pill ${pillClass}">${res.status}</div>` +
+    `<div class="result">${escapeHtml(JSON.stringify(res.body, null, 2))}</div>`;
+}
+
+async function doLogin() {
+  const hospital = document.getElementById('loginHospital').value;
+  const username = document.getElementById('loginUsername').value;
+  const password = document.getElementById('loginPassword').value;
+  const res = await api('POST', '/staff/login', { body: { username, password, hospital } });
+  renderResult('loginResult', res);
+  if (res.ok) {
+    accessToken = res.body.access_token;
+    refreshToken = res.body.refresh_token;
+    updateSessionBadge();
+  }
+}
+
+async function doRefresh() {
+  if (!refreshToken) { alert('No refresh token yet — login first.'); return; }
+  const res = await api('POST', '/staff/refresh', { body: { refresh_token: refreshToken } });
+  renderResult('loginResult', res);
+  if (res.ok) {
+    accessToken = res.body.access_token;
+    refreshToken = res.body.refresh_token;
+    updateSessionBadge();
+  }
+}
+
+async function doLogout() {
+  if (!refreshToken) { alert('No refresh token yet — login first.'); return; }
+  const res = await api('POST', '/staff/logout', { body: { refresh_token: refreshToken }, auth: true });
+  renderResult('loginResult', res);
+  if (res.status === 204) {
+    accessToken = null;
+    refreshToken = null;
+    updateSessionBadge();
+  }
+}
+
+async function doSearch() {
+  const params = new URLSearchParams();
+  const fields = {
+    national_id: 'sNationalId', passport_id: 'sPassportId', date_of_birth: 'sDob',
+    first_name: 'sFirst', middle_name: 'sMiddle', last_name: 'sLast',
+    phone_number: 'sPhone', email: 'sEmail',
+  };
+  for (const [param, elId] of Object.entries(fields)) {
+    const v = document.getElementById(elId).value.trim();
+    if (v) params.set(param, v);
+  }
+  const res = await api('GET', '/patient/search?' + params.toString(), { auth: true });
+  renderResult('searchResult', res);
+  renderTable(res.body);
+}
+
+function renderTable(rows) {
+  const el = document.getElementById('searchTable');
+  if (!Array.isArray(rows) || rows.length === 0) {
+    el.innerHTML = '';
+    return;
+  }
+  const cols = ['first_name_en', 'last_name_en', 'first_name_th', 'last_name_th', 'date_of_birth', 'patient_hn', 'national_id', 'passport_id', 'phone_number', 'gender'];
+  let html = '<table><thead><tr>' + cols.map(c => `<th>${c}</th>`).join('') + '</tr></thead><tbody>';
+  for (const r of rows) {
+    html += '<tr>' + cols.map(c => `<td>${escapeHtml(String(r[c] ?? ''))}</td>`).join('') + '</tr>';
+  }
+  html += '</tbody></table>';
+  el.innerHTML = html;
+}
+
+async function doCreateStaff() {
+  const hospital = document.getElementById('csHospital').value;
+  const username = document.getElementById('csUsername').value;
+  const password = document.getElementById('csPassword').value;
+  const res = await api('POST', '/staff/create', { body: { username, password, hospital }, auth: true });
+  renderResult('createResult', res);
+}
+
+async function doMockHis() {
+  const id = document.getElementById('hisId').value.trim();
+  const res = await api('GET', '/mock-his/patient/search/' + encodeURIComponent(id));
+  renderResult('hisResult', res);
+}
+</script>
+
+</body>
+</html>

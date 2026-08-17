@@ -1,0 +1,336 @@
+basePath: /
+definitions:
+  github_com_watt-siwat_agnos-backend_internal_service.PatientDTO:
+    properties:
+      date_of_birth:
+        type: string
+      email:
+        type: string
+      first_name_en:
+        type: string
+      first_name_th:
+        type: string
+      gender:
+        type: string
+      id:
+        type: string
+      last_name_en:
+        type: string
+      last_name_th:
+        type: string
+      middle_name_en:
+        type: string
+      middle_name_th:
+        type: string
+      national_id:
+        type: string
+      passport_id:
+        type: string
+      patient_hn:
+        type: string
+      phone_number:
+        type: string
+    type: object
+  internal_handler.createStaffRequest:
+    properties:
+      hospital:
+        example: hospital_a
+        type: string
+      password:
+        type: string
+      username:
+        type: string
+    required:
+    - hospital
+    - password
+    - username
+    type: object
+  internal_handler.errorResponse:
+    properties:
+      error:
+        type: string
+    type: object
+  internal_handler.loginRequest:
+    properties:
+      hospital:
+        example: hospital_a
+        type: string
+      password:
+        type: string
+      username:
+        type: string
+    required:
+    - hospital
+    - password
+    - username
+    type: object
+  internal_handler.logoutRequest:
+    properties:
+      refresh_token:
+        type: string
+    required:
+    - refresh_token
+    type: object
+  internal_handler.refreshRequest:
+    properties:
+      refresh_token:
+        type: string
+    required:
+    - refresh_token
+    type: object
+  internal_handler.tokenPairResponse:
+    properties:
+      access_token:
+        type: string
+      refresh_token:
+        type: string
+    type: object
+  internal_mockhis.patientRecord:
+    properties:
+      date_of_birth:
+        type: string
+      email:
+        type: string
+      first_name_en:
+        type: string
+      first_name_th:
+        type: string
+      gender:
+        type: string
+      last_name_en:
+        type: string
+      last_name_th:
+        type: string
+      middle_name_en:
+        type: string
+      middle_name_th:
+        type: string
+      national_id:
+        type: string
+      passport_id:
+        type: string
+      patient_hn:
+        type: string
+      phone_number:
+        type: string
+    type: object
+info:
+  contact: {}
+  description: Middleware for searching/displaying patient information across hospitals,
+    with per-hospital staff isolation.
+  title: Agnos Hospital Middleware API
+  version: "1.0"
+paths:
+  /mock-his/patient/search/{id}:
+    get:
+      description: Standalone simulator of the external Hospital A HIS API (task 1).
+        Hardcoded in-memory fixtures, not called by the middleware's own /patient/search.
+      parameters:
+      - description: national_id or passport_id
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_mockhis.patientRecord'
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Mock Hospital A HIS patient lookup
+      tags:
+      - mock-his
+  /patient/search:
+    get:
+      description: All filters are optional and AND-ed together. Identifiers/phone/email/DOB
+        are exact match; name fields are partial match across Thai and English columns.
+        Results are always scoped to the caller's own hospital.
+      parameters:
+      - description: exact match
+        in: query
+        name: national_id
+        type: string
+      - description: exact match
+        in: query
+        name: passport_id
+        type: string
+      - description: partial match, TH or EN
+        in: query
+        name: first_name
+        type: string
+      - description: partial match, TH or EN
+        in: query
+        name: middle_name
+        type: string
+      - description: partial match, TH or EN
+        in: query
+        name: last_name
+        type: string
+      - description: YYYY-MM-DD, exact match
+        in: query
+        name: date_of_birth
+        type: string
+      - description: exact match
+        in: query
+        name: phone_number
+        type: string
+      - description: exact match
+        in: query
+        name: email
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/github_com_watt-siwat_agnos-backend_internal_service.PatientDTO'
+            type: array
+        "400":
+          description: invalid date_of_birth format
+          schema:
+            $ref: '#/definitions/internal_handler.errorResponse'
+        "401":
+          description: missing or invalid token
+          schema:
+            $ref: '#/definitions/internal_handler.errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Search patients
+      tags:
+      - patient
+  /staff/create:
+    post:
+      consumes:
+      - application/json
+      description: Requires auth; the target hospital must match the caller's own
+        hospital.
+      parameters:
+      - description: New staff details
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handler.createStaffRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: unknown hospital or username taken
+          schema:
+            $ref: '#/definitions/internal_handler.errorResponse'
+        "401":
+          description: missing or invalid token
+          schema:
+            $ref: '#/definitions/internal_handler.errorResponse'
+        "403":
+          description: hospital does not match caller's hospital
+          schema:
+            $ref: '#/definitions/internal_handler.errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Create a new staff member
+      tags:
+      - staff
+  /staff/login:
+    post:
+      consumes:
+      - application/json
+      description: Verifies credentials scoped to a hospital and issues an access
+        + refresh token pair.
+      parameters:
+      - description: Login credentials
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handler.loginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_handler.tokenPairResponse'
+        "401":
+          description: invalid username, password, or hospital
+          schema:
+            $ref: '#/definitions/internal_handler.errorResponse'
+      summary: Staff login
+      tags:
+      - staff
+  /staff/logout:
+    post:
+      consumes:
+      - application/json
+      description: Bonus endpoint, beyond the assignment's stated spec. Deletes the
+        presented refresh token so it cannot be used again.
+      parameters:
+      - description: Refresh token to revoke
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handler.logoutRequest'
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: no content
+        "401":
+          description: missing or invalid access token
+          schema:
+            $ref: '#/definitions/internal_handler.errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Revoke a refresh token
+      tags:
+      - staff
+  /staff/refresh:
+    post:
+      consumes:
+      - application/json
+      description: 'Bonus endpoint, beyond the assignment''s stated spec. Rotates:
+        the presented refresh token is invalidated and a new pair is issued.'
+      parameters:
+      - description: Refresh token
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handler.refreshRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_handler.tokenPairResponse'
+        "401":
+          description: invalid, expired, or already-rotated refresh token
+          schema:
+            $ref: '#/definitions/internal_handler.errorResponse'
+      summary: Rotate an access/refresh token pair
+      tags:
+      - staff
+securityDefinitions:
+  BearerAuth:
+    description: Type "Bearer" followed by a space and the access token, e.g. "Bearer
+      eyJhbGc..."
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"
