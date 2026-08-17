@@ -11,16 +11,17 @@
 │   ├── model/            # GORM structs: Hospital, Staff, Patient, RefreshToken
 │   ├── crypto/            # AES-GCM encrypt/decrypt + HMAC-SHA256 blind-index hashing (PII)
 │   ├── auth/            # JWT issuance/validation + refresh-token generation/hashing — shared by service (issues) and middleware (validates), avoiding a dependency cycle between them
+│   ├── dbmigrate/        # applies embedded migrations at process startup — called by both cmd/api and cmd/seed
 │   ├── repository/        # GORM queries only — one file per aggregate, tenant filters live here
 │   ├── service/            # business logic: auth, token issuance/rotation, search filter building
 │   ├── handler/            # Gin HTTP handlers — request binding, calls service, shapes response
 │   ├── middleware/        # JWT auth (parses claims, injects staff_id/hospital_id into context) + permissive dev-only CORS for webui/
 │   └── mockhis/            # standalone mock of the Hospital A HIS API (hardcoded in-memory data)
-├── migrations/            # golang-migrate versioned .sql files, one pair (up/down) per change
+├── migrations/            # golang-migrate .sql files (one pair up/down per change) + migrations.go (go:embed, so cmd/api and cmd/seed can apply them without depending on files existing on disk at runtime)
 ├── docs/                # this file, er-diagram.md, api-spec.md, generated docs.go/swagger.json/swagger.yaml
 ├── webui/                # single-file HTML/JS test console (not the graded front-end deliverable)
-├── docker-compose.yml    # postgres, migrate (init), seed (init), api, nginx
-├── Dockerfile            # multi-stage: shared build stage, separate `api` and `seed` targets
+├── docker-compose.yml    # postgres, seed (self-migrates + seeds, init), api (self-migrates + serves), nginx
+├── Dockerfile            # multi-stage: shared build stage, `seed` then `api` targets — api is last so it's the default build target with no --target flag (needed for single-container platforms like Railway)
 ├── nginx.conf
 ├── .env.example
 └── go.mod

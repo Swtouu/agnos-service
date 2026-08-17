@@ -14,6 +14,7 @@ import (
 
 	"github.com/google/uuid"
 	appcrypto "github.com/watt-siwat/agnos-backend/internal/crypto"
+	"github.com/watt-siwat/agnos-backend/internal/dbmigrate"
 	"github.com/watt-siwat/agnos-backend/internal/model"
 )
 
@@ -59,6 +60,12 @@ func main() {
 	cryptor, err := appcrypto.New(encKey, []byte(hmacSecret))
 	if err != nil {
 		log.Fatalf("init crypto: %v", err)
+	}
+
+	// Self-migrating like cmd/api — seed can run standalone/first without
+	// depending on a separate migration step existing.
+	if err := dbmigrate.Apply(dsn); err != nil {
+		log.Fatalf("apply migrations: %v", err)
 	}
 
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})

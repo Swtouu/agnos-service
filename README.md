@@ -13,7 +13,7 @@ cp .env.example .env   # edit if you want non-default secrets
 docker compose up --build
 ```
 
-This starts, in order: Postgres → `migrate` (runs `migrations/`, exits) → `seed` (populates fixture data, exits, skips if already seeded) → `api` → `nginx` (reverse proxy on `http://localhost:8080`).
+This starts, in order: Postgres → `seed` (self-migrates the schema, then populates fixture data, exits, skips seeding if already seeded) → `api` (self-migrates again — idempotent no-op since `seed` already did it — then serves) → `nginx` (reverse proxy on `http://localhost:8080`).
 
 Health check: `curl http://localhost:8080/healthz`
 
@@ -63,6 +63,31 @@ Full spec: `docs/api-spec.md` (hand-written) and `docs/swagger.yaml` / Swagger U
 **Bonus, beyond the stated spec** (documented separately so core requirement satisfaction stays unambiguous):
 - `POST /staff/refresh`, `POST /staff/logout` — short-lived (15 min) access tokens with rotating 7-day refresh tokens, DB-backed and revocable
 
+## Deploying (Railway)
+
+Not required by the assignment (only `docker compose` + GitHub are), but the API is deploy-ready as a single container against a managed Postgres:
+
+1. **New Railway project** → **Add a Postgres database** (from Railway's template/plugin list — this gives you a `DATABASE_URL` you'll reference below).
+2. **Add a service from this repo**, pointing at the `Dockerfile` at the repo root. No `railway.json`/build target config needed — `api` is deliberately the *last* stage in the Dockerfile, so it's what gets built by default when no `--target` is specified (see the comment in `Dockerfile`). Railway's config schema has no target/stage field at all, so this ordering is the only lever available — standard Docker/BuildKit behavior, but not something I could verify against a live Railway build from here. **After your first deploy, check the build logs confirm `api` was built (not `seed`) and that `curl <your-app>.up.railway.app/healthz` responds** before assuming this worked.
+3. **Set environment variables** on the `api` service:
+   - `DATABASE_URL` — reference the Postgres plugin's connection string (Railway lets you do this as `${{Postgres.DATABASE_URL}}` in their dashboard, so it stays in sync if the DB ever moves)
+   - `JWT_SECRET`, `ENCRYPTION_KEY` (base64, 32 bytes — `openssl rand -base64 32`), `HMAC_SECRET` — same as local `.env`, but generate fresh values, don't reuse the dev ones from `.env.example`
+   - Leave `ENABLE_DEV_CORS` unset (defaults to off)
+   - Don't set `PORT` — Railway injects it automatically, and the app already reads `PORT` from the environment (`cmd/api/main.go`)
+4. **Deploy.** The `api` binary self-migrates the schema on boot (`internal/dbmigrate`, idempotent — safe on every restart/redeploy), so there's no separate migration step to run.
+5. **Seed data (optional)**, for a demo with sample hospitals/patients — run `cmd/seed` from your own machine against Railway's Postgres, **not** via `railway run` (that executes locally but injects the *internal* `DATABASE_URL`, e.g. `postgres.railway.internal`, which only resolves from inside Railway's own network and will fail with a DNS error from a local machine — a real, reported gotcha, not hypothetical):
+   ```bash
+   # One-time: on the Postgres service in the Railway dashboard, enable
+   # "Public Networking" and copy the public connection string it shows you.
+   DATABASE_URL="<public connection string from Railway dashboard>" \
+     ENCRYPTION_KEY=<same key as the api service> \
+     HMAC_SECRET=<same secret as the api service> \
+     go run ./cmd/seed
+   ```
+   Not required for the API to function — only needed if you want the demo accounts from the [Seeded accounts](#seeded-accounts) table to exist. Turn public networking back off afterward if you don't want the DB reachable from outside Railway long-term.
+
+`nginx` isn't part of the Railway deployment — Railway's own edge handles TLS/routing to your container's `PORT`, so it would just be a redundant hop. It stays in `docker-compose.yml` for local dev since Nginx is one of the assignment's explicitly named tech-stack requirements.
+
 ## Design docs
 
 - `docs/er-diagram.md` — schema + rationale (bilingual name columns, blind-index encryption)
@@ -75,6 +100,7 @@ Full spec: `docs/api-spec.md` (hand-written) and `docs/swagger.yaml` / Swagger U
 - **Tenant isolation**: every `Staff`/`Patient` row carries `hospital_id`; every query filters on it, derived from the caller's JWT, never from client input. `/staff/create` also requires the caller's own hospital to match the target hospital.
 - **`national_id`/`passport_id` are encrypted at rest** using a blind-index pattern: AES-GCM (random nonce) for the displayable value, plus a separate deterministic HMAC-SHA256 column for exact-match search — avoids storing PII in plaintext without leaking equality patterns the way naive deterministic encryption would.
 - **Bilingual name columns** (`first_name_th`/`first_name_en`, etc.) mirror the Hospital A HIS response shape; `/patient/search`'s flat `first_name` input matches against both.
+- **Self-migrating binaries**: `cmd/api` and `cmd/seed` both apply pending migrations on startup (`internal/dbmigrate`, embedding `migrations/*.sql` via `go:embed` — no dependency on a file being present on disk at runtime). Idempotent, so safe on every boot/redeploy. This replaced an earlier separate `migrate` init container in `docker-compose.yml`: that pattern works for local Docker Compose but has no clean equivalent on single-container PaaS platforms (Railway, Fly, Render) that don't offer a distinct pre-deploy migration step — one mechanism that works everywhere beats two that only work in different places.
 
 ## Testing
 
