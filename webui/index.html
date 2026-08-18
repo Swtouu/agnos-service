@@ -185,8 +185,8 @@
   <section class="card">
     <h2>API base URL</h2>
     <label for="baseUrl">Base URL</label>
-    <input id="baseUrl" value="http://localhost:8080" />
-    <div class="hint">Points at nginx (docker compose) by default. Requests to /staff/* and /patient/search go through this.</div>
+    <input id="baseUrl" value="" />
+    <div class="hint">Defaults to this page's own origin (correct when served by the API itself at /ui — local docker-compose or a real deployment). Editing it lets you point at a different API instance, e.g. when running this file standalone via `python3 -m http.server`.</div>
   </section>
 
   <section class="card">
@@ -262,6 +262,8 @@
 <script>
 let accessToken = null;
 let refreshToken = null;
+
+document.getElementById('baseUrl').value = window.location.origin;
 
 function baseUrl() {
   return document.getElementById('baseUrl').value.replace(/\/$/, '');

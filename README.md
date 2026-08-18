@@ -23,12 +23,14 @@ Swagger UI: `http://localhost:8080/swagger/index.html`
 
 `webui/index.html` is a minimal, single-file, no-build test console (vanilla HTML/JS) styled as a lightweight hospital staff portal — login, patient search with a results table, staff creation, refresh/logout, and a mock-HIS lookup, each hitting its real endpoint with a request/response log at the bottom. It's a testing aid, not the graded front-end deliverable (that's a separate assignment with its own Next.js/WebSocket spec).
 
+Embedded into the `api` binary via `go:embed` (`webui/webui.go`) and served at **`/ui`** — reachable wherever the API runs, local or deployed, with zero config: `http://localhost:8080/ui` locally, `https://<your-app>.up.railway.app/ui` once deployed. It defaults its Base URL field to the page's own origin (`window.location.origin`), so it talks to whichever API instance served it — no CORS needed for this path, since it's same-origin by construction.
+
+To run it standalone against a *different* API instance instead (e.g. pointing a locally-opened copy at a remote API, or the old workflow):
 ```bash
 cd webui && python3 -m http.server 5500
-# open http://localhost:5500
+# open http://localhost:5500, then edit the Base URL field
 ```
-
-The webui needs CORS enabled on the API — set `ENABLE_DEV_CORS=true` in `.env` (see `.env.example`) before `docker compose up`. Off by default; when on, the API allows CORS from any origin (`internal/middleware/cors.go`) — permissive by design, dev-only, gated behind the env var specifically so it can't ship on in a real deployment by accident.
+That cross-origin path needs CORS enabled on the target API — set `ENABLE_DEV_CORS=true` in `.env` (see `.env.example`). Off by default; when on, the API allows CORS from any origin (`internal/middleware/cors.go`) — permissive by design, dev-only, gated behind the env var specifically so it can't ship on in a real deployment by accident.
 
 ## Seeded accounts
 
@@ -74,7 +76,7 @@ Not required by the assignment (only `docker compose` + GitHub are), but the API
    - `JWT_SECRET`, `ENCRYPTION_KEY` (base64, 32 bytes — `openssl rand -base64 32`), `HMAC_SECRET` — same as local `.env`, but generate fresh values, don't reuse the dev ones from `.env.example`
    - Leave `ENABLE_DEV_CORS` unset (defaults to off)
    - Don't set `PORT` — Railway injects it automatically, and the app already reads `PORT` from the environment (`cmd/api/main.go`)
-4. **Deploy.** The `api` binary self-migrates the schema on boot (`internal/dbmigrate`, idempotent — safe on every restart/redeploy), so there's no separate migration step to run.
+4. **Deploy.** The `api` binary self-migrates the schema on boot (`internal/dbmigrate`, idempotent — safe on every restart/redeploy), so there's no separate migration step to run. Once it's up, `https://<your-app>.up.railway.app/ui` gives you the [test console](#test-ui) with zero extra setup — it auto-detects the API's own origin.
 5. **Seed data (optional)**, for a demo with sample hospitals/patients — run `cmd/seed` from your own machine against Railway's Postgres, **not** via `railway run` (that executes locally but injects the *internal* `DATABASE_URL`, e.g. `postgres.railway.internal`, which only resolves from inside Railway's own network and will fail with a DNS error from a local machine — a real, reported gotcha, not hypothetical):
    ```bash
    # One-time: on the Postgres service in the Railway dashboard, enable

@@ -14,6 +14,7 @@ package main
 import (
 	"encoding/base64"
 	"log"
+	"net/http"
 	"os"
 
 	"github.com/gin-gonic/gin"
@@ -30,6 +31,7 @@ import (
 	"github.com/watt-siwat/agnos-backend/internal/mockhis"
 	"github.com/watt-siwat/agnos-backend/internal/repository"
 	"github.com/watt-siwat/agnos-backend/internal/service"
+	"github.com/watt-siwat/agnos-backend/webui"
 )
 
 func mustEnv(key string) string {
@@ -85,6 +87,22 @@ func main() {
 
 	r.GET("/healthz", func(c *gin.Context) { c.JSON(200, gin.H{"status": "ok"}) })
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+
+	// Test console (webui/) — a testing aid, not the graded front-end
+	// deliverable. Embedded into the binary so it's reachable wherever the
+	// API is deployed, no separate static server required.
+	//
+	// Read+Data instead of FileFromFS/http.FileServer — the stdlib file
+	// server special-cases any file named index.html and 301s to "./" when
+	// the request path doesn't end in "/", which breaks a clean /ui path.
+	r.GET("/ui", func(c *gin.Context) {
+		data, err := webui.FS.ReadFile("index.html")
+		if err != nil {
+			c.AbortWithStatus(http.StatusInternalServerError)
+			return
+		}
+		c.Data(http.StatusOK, "text/html; charset=utf-8", data)
+	})
 
 	// Mock Hospital A HIS — standalone simulator, task 1 of the assignment.
 	r.GET("/mock-his/patient/search/:id", mockhis.Search)

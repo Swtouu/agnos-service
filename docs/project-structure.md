@@ -19,7 +19,7 @@
 │   └── mockhis/            # standalone mock of the Hospital A HIS API (hardcoded in-memory data)
 ├── migrations/            # golang-migrate .sql files (one pair up/down per change) + migrations.go (go:embed, so cmd/api and cmd/seed can apply them without depending on files existing on disk at runtime)
 ├── docs/                # this file, er-diagram.md, api-spec.md, generated docs.go/swagger.json/swagger.yaml
-├── webui/                # single-file HTML/JS test console (not the graded front-end deliverable)
+├── webui/                # single-file HTML/JS test console (not the graded front-end deliverable) + webui.go (go:embed, served by cmd/api at /ui)
 ├── docker-compose.yml    # postgres, seed (self-migrates + seeds, init), api (self-migrates + serves), nginx
 ├── Dockerfile            # multi-stage: shared build stage, `seed` then `api` targets — api is last so it's the default build target with no --target flag (needed for single-container platforms like Railway)
 ├── nginx.conf
