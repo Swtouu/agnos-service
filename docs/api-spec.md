@@ -26,10 +26,12 @@ Standalone, simulates the external system. Not called by the middleware at reque
 
 ### `GET /patient/search`
 - **Auth**: required
-- **Query params** (all optional): `national_id`, `passport_id`, `first_name`, `middle_name`, `last_name`, `date_of_birth`, `phone_number`, `email`
-- **Matching**: AND across provided fields; exact match on identifiers/DOB/phone/email; `ILIKE` partial match on name fields (checked against both `_th` and `_en` columns)
+- **Query params** (all optional): `national_id`, `passport_id`, `first_name`, `middle_name`, `last_name`, `date_of_birth`, `phone_number`, `email`, `limit`, `offset`
+- **Matching**: AND across provided filter fields; exact match on identifiers/DOB/phone/email; `ILIKE` partial match on name fields (checked against both `_th` and `_en` columns)
 - **Scope**: results restricted to `hospital_id` derived from the caller's JWT, never from client input
-- **200**: list of matching patients (decrypted `national_id`/`passport_id` for display)
+- **Pagination**: `limit` defaults to 20, capped at 100 regardless of what's requested (prevents a single query from dumping an entire hospital's patient table); `offset` defaults to 0. `limit=0` is a valid, deliberate request — returns zero rows but the real `total`, useful for "just tell me the count." Results are ordered by `created_at, id` for stable, non-overlapping pages.
+- **200**: `{ patients: [...], total, limit, offset }` — `total` is the full match count across all pages, not just this page's row count
+- **400**: invalid `date_of_birth`, or `limit`/`offset` not a non-negative integer
 - **401**: missing/invalid/expired token
 
 ## Bonus (beyond stated spec — documented separately so core requirement satisfaction stays unambiguous)

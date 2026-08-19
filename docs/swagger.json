@@ -53,7 +53,7 @@
                         "BearerAuth": []
                     }
                 ],
-                "description": "All filters are optional and AND-ed together. Identifiers/phone/email/DOB are exact match; name fields are partial match across Thai and English columns. Results are always scoped to the caller's own hospital.",
+                "description": "All filters are optional and AND-ed together. Identifiers/phone/email/DOB are exact match; name fields are partial match across Thai and English columns. Results are always scoped to the caller's own hospital, and paginated.",
                 "produces": [
                     "application/json"
                 ],
@@ -109,20 +109,29 @@
                         "description": "exact match",
                         "name": "email",
                         "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "default 20, capped at 100",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "default 0",
+                        "name": "offset",
+                        "in": "query"
                     }
                 ],
                 "responses": {
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/github_com_watt-siwat_agnos-backend_internal_service.PatientDTO"
-                            }
+                            "$ref": "#/definitions/github_com_watt-siwat_agnos-backend_internal_service.PatientSearchResult"
                         }
                     },
                     "400": {
-                        "description": "invalid date_of_birth format",
+                        "description": "invalid date_of_birth, limit, or offset",
                         "schema": {
                             "$ref": "#/definitions/internal_handler.errorResponse"
                         }
@@ -362,6 +371,26 @@
                 },
                 "phone_number": {
                     "type": "string"
+                }
+            }
+        },
+        "github_com_watt-siwat_agnos-backend_internal_service.PatientSearchResult": {
+            "type": "object",
+            "properties": {
+                "limit": {
+                    "type": "integer"
+                },
+                "offset": {
+                    "type": "integer"
+                },
+                "patients": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_watt-siwat_agnos-backend_internal_service.PatientDTO"
+                    }
+                },
+                "total": {
+                    "type": "integer"
                 }
             }
         },

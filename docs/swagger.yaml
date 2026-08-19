@@ -31,6 +31,19 @@ definitions:
       phone_number:
         type: string
     type: object
+  github_com_watt-siwat_agnos-backend_internal_service.PatientSearchResult:
+    properties:
+      limit:
+        type: integer
+      offset:
+        type: integer
+      patients:
+        items:
+          $ref: '#/definitions/github_com_watt-siwat_agnos-backend_internal_service.PatientDTO'
+        type: array
+      total:
+        type: integer
+    type: object
   internal_handler.createStaffRequest:
     properties:
       hospital:
@@ -151,7 +164,7 @@ paths:
     get:
       description: All filters are optional and AND-ed together. Identifiers/phone/email/DOB
         are exact match; name fields are partial match across Thai and English columns.
-        Results are always scoped to the caller's own hospital.
+        Results are always scoped to the caller's own hospital, and paginated.
       parameters:
       - description: exact match
         in: query
@@ -185,17 +198,23 @@ paths:
         in: query
         name: email
         type: string
+      - description: default 20, capped at 100
+        in: query
+        name: limit
+        type: integer
+      - description: default 0
+        in: query
+        name: offset
+        type: integer
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            items:
-              $ref: '#/definitions/github_com_watt-siwat_agnos-backend_internal_service.PatientDTO'
-            type: array
+            $ref: '#/definitions/github_com_watt-siwat_agnos-backend_internal_service.PatientSearchResult'
         "400":
-          description: invalid date_of_birth format
+          description: invalid date_of_birth, limit, or offset
           schema:
             $ref: '#/definitions/internal_handler.errorResponse'
         "401":

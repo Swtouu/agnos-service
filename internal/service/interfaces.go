@@ -22,7 +22,8 @@ type StaffRepository interface {
 }
 
 type PatientRepository interface {
-	Search(ctx context.Context, hospitalID uuid.UUID, filters model.PatientSearchFilters) ([]model.Patient, error)
+	// Search returns the page of matching rows plus the total match count.
+	Search(ctx context.Context, hospitalID uuid.UUID, filters model.PatientSearchFilters) (rows []model.Patient, total int64, err error)
 }
 
 type RefreshTokenRepository interface {

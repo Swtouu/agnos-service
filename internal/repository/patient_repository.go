@@ -19,8 +19,36 @@ func NewPatientRepository(db *gorm.DB) *PatientRepository {
 
 // Search always filters by hospitalID first — this is where tenant isolation
 // is enforced at the SQL level. Every other filter is AND-ed on top of it.
-func (r *PatientRepository) Search(ctx context.Context, hospitalID uuid.UUID, f model.PatientSearchFilters) ([]model.Patient, error) {
-	q := r.db.WithContext(ctx).Where("hospital_id = ?", hospitalID)
+// Returns the page of matching rows plus the total match count (pre-paging),
+// so callers can render "N of M" / next-page-exists without a second request.
+func (r *PatientRepository) Search(ctx context.Context, hospitalID uuid.UUID, f model.PatientSearchFilters) ([]model.Patient, int64, error) {
+	var total int64
+	if err := r.filtered(ctx, hospitalID, f).Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	// ORDER BY is required for LIMIT/OFFSET to return stable, non-overlapping
+	// pages — without it Postgres gives no guarantee about row order at all,
+	// let alone a consistent one across two paginated calls.
+	//
+	// Limit is applied unconditionally, including when it's 0 — GORM's clause
+	// builder treats Limit(0) as a literal "LIMIT 0" (zero rows), distinct
+	// from omitting Limit() entirely (unbounded). The service layer guarantees
+	// f.Limit is never negative by the time it reaches here.
+	var rows []model.Patient
+	q := r.filtered(ctx, hospitalID, f).Order("created_at, id").Limit(f.Limit).Offset(f.Offset)
+	if err := q.Find(&rows).Error; err != nil {
+		return nil, 0, err
+	}
+	return rows, total, nil
+}
+
+// filtered builds a fresh query with every WHERE clause applied, no LIMIT/OFFSET/ORDER.
+// Called separately for the Count and the Find so each gets its own *gorm.DB —
+// reusing one chain across two terminal calls (Count then Find) is a known
+// GORM pitfall where clauses can leak between them.
+func (r *PatientRepository) filtered(ctx context.Context, hospitalID uuid.UUID, f model.PatientSearchFilters) *gorm.DB {
+	q := r.db.WithContext(ctx).Model(&model.Patient{}).Where("hospital_id = ?", hospitalID)
 
 	if f.NationalIDHash != "" {
 		q = q.Where("national_id_hash = ?", f.NationalIDHash)
@@ -49,10 +77,5 @@ func (r *PatientRepository) Search(ctx context.Context, hospitalID uuid.UUID, f 
 	if f.DateOfBirth != nil {
 		q = q.Where("date_of_birth = ?", *f.DateOfBirth)
 	}
-
-	var rows []model.Patient
-	if err := q.Find(&rows).Error; err != nil {
-		return nil, err
-	}
-	return rows, nil
+	return q
 }

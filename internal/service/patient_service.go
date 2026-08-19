@@ -11,6 +11,14 @@ import (
 	"github.com/watt-siwat/agnos-backend/internal/model"
 )
 
+const (
+	// DefaultSearchLimit applies when the caller doesn't specify a limit.
+	DefaultSearchLimit = 20
+	// MaxSearchLimit caps every request, specified or not — prevents a
+	// single query from dumping an entire hospital's patient table.
+	MaxSearchLimit = 100
+)
+
 // PatientSearchInput mirrors the request-side optional filters, using plaintext
 // national_id/passport_id — the service converts these to blind-index hashes
 // before they ever reach the repository layer.
@@ -23,6 +31,18 @@ type PatientSearchInput struct {
 	PhoneNumber string
 	Email       string
 	DateOfBirth *time.Time
+	// Limit < 0 means "not specified" — DefaultSearchLimit applies. Offset < 0
+	// is clamped to 0.
+	Limit  int
+	Offset int
+}
+
+// PatientSearchResult is the paginated response envelope.
+type PatientSearchResult struct {
+	Patients []PatientDTO `json:"patients"`
+	Total    int64        `json:"total"`
+	Limit    int          `json:"limit"`
+	Offset   int          `json:"offset"`
 }
 
 type PatientDTO struct {
@@ -53,7 +73,19 @@ func NewPatientService(patients PatientRepository, cryptor *crypto.Cryptor) *Pat
 
 // Search scopes every query to hospitalID — derived from the caller's JWT by
 // the handler, never taken from client input.
-func (s *PatientService) Search(ctx context.Context, hospitalID uuid.UUID, input PatientSearchInput) ([]PatientDTO, error) {
+func (s *PatientService) Search(ctx context.Context, hospitalID uuid.UUID, input PatientSearchInput) (PatientSearchResult, error) {
+	limit := input.Limit
+	if limit < 0 {
+		limit = DefaultSearchLimit
+	}
+	if limit > MaxSearchLimit {
+		limit = MaxSearchLimit
+	}
+	offset := input.Offset
+	if offset < 0 {
+		offset = 0
+	}
+
 	filters := model.PatientSearchFilters{
 		FirstName:   input.FirstName,
 		MiddleName:  input.MiddleName,
@@ -61,6 +93,8 @@ func (s *PatientService) Search(ctx context.Context, hospitalID uuid.UUID, input
 		PhoneNumber: input.PhoneNumber,
 		Email:       input.Email,
 		DateOfBirth: input.DateOfBirth,
+		Limit:       limit,
+		Offset:      offset,
 	}
 	if input.NationalID != "" {
 		filters.NationalIDHash = s.cryptor.Hash(input.NationalID)
@@ -69,9 +103,9 @@ func (s *PatientService) Search(ctx context.Context, hospitalID uuid.UUID, input
 		filters.PassportIDHash = s.cryptor.Hash(input.PassportID)
 	}
 
-	rows, err := s.patients.Search(ctx, hospitalID, filters)
+	rows, total, err := s.patients.Search(ctx, hospitalID, filters)
 	if err != nil {
-		return nil, err
+		return PatientSearchResult{}, err
 	}
 
 	dtos := make([]PatientDTO, 0, len(rows))
@@ -106,5 +140,5 @@ func (s *PatientService) Search(ctx context.Context, hospitalID uuid.UUID, input
 		}
 		dtos = append(dtos, dto)
 	}
-	return dtos, nil
+	return PatientSearchResult{Patients: dtos, Total: total, Limit: limit, Offset: offset}, nil
 }

@@ -225,8 +225,15 @@
       <div><label>phone_number</label><input id="sPhone" /></div>
       <div><label>email</label><input id="sEmail" /></div>
     </div>
-    <button onclick="doSearch()">Search patients</button>
+    <div class="row">
+      <div><label>limit</label><input id="sLimit" value="20" placeholder="default 20, max 100" /></div>
+      <div><label>offset</label><input id="sOffset" value="0" /></div>
+    </div>
+    <button onclick="doSearch(true)">Search patients</button>
+    <button class="secondary" onclick="prevPage()">&larr; Prev page</button>
+    <button class="secondary" onclick="nextPage()">Next page &rarr;</button>
     <div id="searchResult"></div>
+    <div id="searchMeta" class="hint"></div>
     <div id="searchTable"></div>
   </section>
 
@@ -376,12 +383,14 @@ async function doLogout() {
   }
 }
 
-async function doSearch() {
+async function doSearch(resetOffset) {
+  if (resetOffset) document.getElementById('sOffset').value = 0;
+
   const params = new URLSearchParams();
   const fields = {
     national_id: 'sNationalId', passport_id: 'sPassportId', date_of_birth: 'sDob',
     first_name: 'sFirst', middle_name: 'sMiddle', last_name: 'sLast',
-    phone_number: 'sPhone', email: 'sEmail',
+    phone_number: 'sPhone', email: 'sEmail', limit: 'sLimit', offset: 'sOffset',
   };
   for (const [param, elId] of Object.entries(fields)) {
     const v = document.getElementById(elId).value.trim();
@@ -389,15 +398,40 @@ async function doSearch() {
   }
   const res = await api('GET', '/patient/search?' + params.toString(), { auth: true });
   renderResult('searchResult', res);
-  renderTable(res.body);
+  if (res.ok) {
+    renderTable(res.body);
+  }
 }
 
-function renderTable(rows) {
+function prevPage() {
+  const limit = parseInt(document.getElementById('sLimit').value, 10) || 20;
+  const offset = parseInt(document.getElementById('sOffset').value, 10) || 0;
+  document.getElementById('sOffset').value = Math.max(0, offset - limit);
+  doSearch(false);
+}
+
+function nextPage() {
+  const limit = parseInt(document.getElementById('sLimit').value, 10) || 20;
+  const offset = parseInt(document.getElementById('sOffset').value, 10) || 0;
+  document.getElementById('sOffset').value = offset + limit;
+  doSearch(false);
+}
+
+function renderTable(result) {
   const el = document.getElementById('searchTable');
-  if (!Array.isArray(rows) || rows.length === 0) {
+  const meta = document.getElementById('searchMeta');
+  const rows = result.patients || [];
+
+  if (rows.length === 0) {
     el.innerHTML = '';
+    meta.textContent = `0 of ${result.total ?? 0} total`;
     return;
   }
+
+  const start = result.offset + 1;
+  const end = result.offset + rows.length;
+  meta.textContent = `Showing ${start}-${end} of ${result.total} (limit=${result.limit}, offset=${result.offset})`;
+
   const cols = ['first_name_en', 'last_name_en', 'first_name_th', 'last_name_th', 'date_of_birth', 'patient_hn', 'national_id', 'passport_id', 'phone_number', 'gender'];
   let html = '<table><thead><tr>' + cols.map(c => `<th>${c}</th>`).join('') + '</tr></thead><tbody>';
   for (const r of rows) {

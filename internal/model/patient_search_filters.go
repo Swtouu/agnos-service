@@ -15,4 +15,6 @@ type PatientSearchFilters struct {
 	PhoneNumber    string
 	Email          string
 	DateOfBirth    *time.Time
+	Limit          int
+	Offset         int
 }
